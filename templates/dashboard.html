@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — M365 Tenant Report</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'DM Sans',sans-serif;background:#f0f2f5;color:#1e293b;min-height:100vh}
+
+    .topbar{background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+    .topbar h1{font-size:17px;font-weight:700}
+    .topbar .meta{font-size:11px;color:#64748b;margin-top:2px}
+    .topbar-actions{display:flex;gap:8px;align-items:center;position:relative}
+    .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border:none;border-radius:8px;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.2s;text-decoration:none;white-space:nowrap}
+    .btn-primary{background:#2563eb;color:#fff;box-shadow:0 2px 8px rgba(37,99,235,0.2)}
+    .btn-primary:hover{background:#1d4ed8}
+    .btn-outline{background:#fff;color:#475569;border:1px solid #e2e8f0}
+    .btn-outline:hover{background:#f8fafc;border-color:#cbd5e1}
+
+    /* Export dropdown */
+    .export-wrap{position:relative}
+    .export-menu{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#fff;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.14);border:1px solid #e2e8f0;overflow:hidden;z-index:100;min-width:210px;animation:fadeIn .15s ease}
+    .export-menu.open{display:block}
+    .export-menu a{display:flex;align-items:center;gap:10px;padding:12px 16px;font-size:13px;font-weight:500;color:#1e293b;text-decoration:none;transition:background 0.15s}
+    .export-menu a:hover{background:#f1f5f9}
+    .export-menu a .hint{font-size:11px;color:#94a3b8;margin-left:auto}
+    .export-menu .divider{height:1px;background:#e2e8f0}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+
+    .container{max-width:1140px;margin:0 auto;padding:24px}
+
+    /* Workload nav */
+    .wl-nav{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap}
+    .wl-btn{padding:8px 18px;font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;color:#64748b;background:#fff;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;transition:all 0.2s}
+    .wl-btn.active{color:#fff;background:#2563eb;border-color:#2563eb;font-weight:700}
+    .wl-panel{display:none}
+    .wl-panel.active{display:block}
+
+    /* Tabs within workload */
+    .tabs{display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:20px}
+    .tab-btn{padding:9px 18px;font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;color:#64748b;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-2px;transition:all 0.2s}
+    .tab-btn.active{color:#2563eb;font-weight:700;border-bottom-color:#2563eb}
+    .tab-content{display:none}
+    .tab-content.active{display:block}
+
+    .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+    .stat-card{background:#fff;border-radius:10px;padding:18px 22px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.03)}
+    .stat-card .value{font-size:26px;font-weight:700;letter-spacing:-0.02em}
+    .stat-card .label{font-size:10px;font-weight:500;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;margin-top:3px}
+
+    .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+    .chart-grid.full{grid-template-columns:1fr}
+    .chart-card{background:#fff;border-radius:10px;padding:24px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.03)}
+    .chart-card h3{font-size:14px;font-weight:700;color:#2563eb;margin-bottom:3px}
+    .chart-card .chart-sub{font-size:11px;color:#64748b;font-style:italic;margin-bottom:14px}
+
+    .tbl-wrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;font-size:11.5px}
+    th{padding:9px 10px;text-align:left;font-weight:600;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #e2e8f0;position:sticky;top:0;background:#fff;cursor:pointer;user-select:none;white-space:nowrap}
+    th:hover{color:#2563eb}
+    th .sa{font-size:9px;margin-left:3px;opacity:.4}
+    th.sorted .sa{opacity:1;color:#2563eb}
+    td{padding:7px 10px;border-bottom:1px solid #e2e8f0}
+    tr:nth-child(even){background:#fafbfc}
+    .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600}
+    .b-user{background:#dbeafe;color:#1e40af}.b-shared{background:#fef3c7;color:#92400e}
+    .b-resource{background:#ede9fe;color:#5b21b6}.b-other{background:#f1f5f9;color:#475569}
+    .b-public{background:#dbeafe;color:#1e40af}.b-private{background:#fef3c7;color:#92400e}
+    .b-hidden{background:#ede9fe;color:#5b21b6}
+    .dot{display:inline-block;width:7px;height:7px;border-radius:50%}
+    .dot-on{background:#10b981}.dot-off{background:#d1d5db}
+
+    @media(max-width:768px){.chart-grid{grid-template-columns:1fr}.topbar{flex-direction:column;gap:10px;align-items:flex-start}}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>Microsoft 365 Tenant Discovery Report</h1>
+    <div class="meta">Generated {{ now }}</div>
+  </div>
+  <div class="topbar-actions">
+    <div class="export-wrap">
+      <button class="btn btn-primary" id="exportBtn" onclick="document.getElementById('exportMenu').classList.toggle('open')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
+        Export to PDF
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="export-menu" id="exportMenu">
+        <a href="/export-pdf/summary">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>
+          Summary
+          <span class="hint">Charts only</span>
+        </a>
+        <div class="divider"></div>
+        <a href="/export-pdf/detailed">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Detailed
+          <span class="hint">Charts + tables</span>
+        </a>
+      </div>
+    </div>
+    <a href="/" class="btn btn-outline">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      New Upload
+    </a>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Workload nav pills -->
+  <div class="wl-nav" id="wlNav"></div>
+
+  <!-- Panels rendered by JS -->
+  <div id="panels"></div>
+</div>
+
+<script>
+// Close export menu on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('.export-wrap')) document.getElementById('exportMenu').classList.remove('open');
+});
+
+const allStats = {{ all_stats | tojson }};
+const labels = {{ labels | tojson }};
+const DONUT = ['#2563eb','#f59e0b','#7c3aed','#10b981','#ef4444','#8b5cf6'];
+const TEAL = '#0d9488';
+const PRI = '#2563eb';
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.defaults.font.size = 11;
+
+const wlKeys = Object.keys(allStats);
+const nav = document.getElementById('wlNav');
+const panels = document.getElementById('panels');
+
+// Build nav + panels
+wlKeys.forEach((k, idx) => {
+  const btn = document.createElement('button');
+  btn.className = 'wl-btn' + (idx === 0 ? ' active' : '');
+  btn.dataset.wl = k;
+  btn.textContent = labels[k];
+  btn.onclick = () => switchWl(k);
+  nav.appendChild(btn);
+
+  const panel = document.createElement('div');
+  panel.className = 'wl-panel' + (idx === 0 ? ' active' : '');
+  panel.id = 'wl-' + k;
+  panels.appendChild(panel);
+});
+
+function switchWl(k) {
+  document.querySelectorAll('.wl-btn').forEach(b => b.classList.toggle('active', b.dataset.wl === k));
+  document.querySelectorAll('.wl-panel').forEach(p => p.classList.toggle('active', p.id === 'wl-' + k));
+}
+
+// ── Helper: create inner tabs ──
+function makeTabs(panel, overviewHTML, detailsHTML, detailsLabel) {
+  panel.innerHTML = `
+    <div class="tabs"><button class="tab-btn active" data-t="ov">Tenant overview</button><button class="tab-btn" data-t="dt">${detailsLabel}</button></div>
+    <div class="tab-content active" data-tc="ov">${overviewHTML}</div>
+    <div class="tab-content" data-tc="dt">${detailsHTML}</div>`;
+  panel.querySelectorAll('.tab-btn').forEach(b => {
+    b.onclick = () => {
+      panel.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.t === b.dataset.t));
+      panel.querySelectorAll('.tab-content').forEach(x => x.classList.toggle('active', x.dataset.tc === b.dataset.t));
+    };
+  });
+}
+
+function statHTML(val, label) { return `<div class="stat-card"><div class="value">${val}</div><div class="label">${label}</div></div>`; }
+function chartCard(id, title, sub, extra='') { return `<div class="chart-card"><h3>${title}</h3><p class="chart-sub">${sub}</p><canvas id="${id}"></canvas>${extra}</div>`; }
+
+function badgeType(t) {
+  if (t.includes('User')) return 'b-user';
+  if (t.includes('Shared')) return 'b-shared';
+  if (t.includes('Resource')) return 'b-resource';
+  return 'b-other';
+}
+function badgePriv(p) { return p==='Public'?'b-public':p==='Private'?'b-private':'b-hidden'; }
+
+function buildDonut(id, labels, data, colors) {
+  new Chart(document.getElementById(id), {
+    type:'doughnut', data:{labels, datasets:[{data, backgroundColor:colors||DONUT.slice(0,labels.length), borderWidth:2, borderColor:'#fff'}]},
+    options:{cutout:'62%', plugins:{legend:{position:'right',labels:{padding:14,usePointStyle:true,pointStyle:'rectRounded',font:{size:11}}}}, responsive:true, maintainAspectRatio:true}
+  });
+}
+function buildBar(id, labels, data, color) {
+  new Chart(document.getElementById(id), {
+    type:'bar', data:{labels, datasets:[{data, backgroundColor:color||TEAL, borderRadius:4, barPercentage:0.6}]},
+    options:{plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,grid:{color:'#eee',drawBorder:false}},x:{grid:{display:false}}}}
+  });
+}
+function buildHBar(id, labels, data, color, fmtFn) {
+  new Chart(document.getElementById(id), {
+    type:'bar', data:{labels, datasets:[{data, backgroundColor:(color||PRI)+'dd', borderRadius:4, barPercentage:0.65}]},
+    options:{indexAxis:'y', plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>fmtFn?fmtFn(ctx.parsed.x):ctx.parsed.x.toLocaleString()}}},
+    scales:{x:{beginAtZero:true,grid:{color:'#eee',drawBorder:false}},y:{grid:{display:false},ticks:{font:{size:10}}}}}
+  });
+}
+
+function sortableTable(panel, tableId, rows, colDefs) {
+  let sortCol = null, sortAsc = true;
+  const thead = panel.querySelector(`#${tableId} thead tr`);
+  const renderBody = (data) => {
+    panel.querySelector(`#${tableId} tbody`).innerHTML = data.map(r =>
+      '<tr>' + colDefs.map(c => `<td>${c.render ? c.render(r) : r[c.key]}</td>`).join('') + '</tr>'
+    ).join('');
+  };
+  renderBody(rows);
+  thead.querySelectorAll('th').forEach((th, ci) => {
+    th.onclick = () => {
+      const c = colDefs[ci];
+      if (sortCol === c.key) sortAsc = !sortAsc; else { sortCol = c.key; sortAsc = true; }
+      thead.querySelectorAll('th').forEach(h => { h.classList.remove('sorted'); h.querySelector('.sa').textContent = '▲'; });
+      th.classList.add('sorted'); th.querySelector('.sa').textContent = sortAsc ? '▲' : '▼';
+      const sorted = [...rows].sort((a,b) => {
+        let va = c.num ? (Number(a[c.key])||0) : String(a[c.key]).toLowerCase();
+        let vb = c.num ? (Number(b[c.key])||0) : String(b[c.key]).toLowerCase();
+        return sortAsc ? (va<vb?-1:va>vb?1:0) : (va>vb?-1:va<vb?1:0);
+      });
+      renderBody(sorted);
+    };
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  BUILD EACH WORKLOAD
+// ═══════════════════════════════════════════════════════════════
+
+// ── Exchange ──
+if (allStats.exchange) {
+  const s = allStats.exchange;
+  const ov = `
+    <div class="stat-grid">
+      ${statHTML(s.total_mailboxes,'Total Mailboxes')}${statHTML(s.total_items.toLocaleString(),'Total Items')}
+      ${statHTML(s.total_storage.toFixed(2),'Storage Used (GB)')}${statHTML(s.total_deleted.toLocaleString(),'Deleted Items')}
+      ${statHTML(s.total_del_size.toFixed(2),'Del. Item Size (GB)')}${statHTML(s.inactive,'Inactive Mailboxes')}
+    </div>
+    <div class="chart-grid">
+      ${chartCard('exType','Mailboxes by type','Total number of mailboxes and count by type.')}
+      ${chartCard('exStorage','Mailboxes by storage used','Number of mailboxes by storage bucket.')}
+    </div>
+    <div class="chart-grid">
+      ${chartCard('exArchive','Archive mailbox status','Mailboxes with archiving enabled vs disabled.')}
+      ${chartCard('exTopStor','Top 10 mailboxes by storage','Largest mailboxes by storage used (GB).')}
+    </div>
+    <div class="chart-grid full">${chartCard('exTopItems','Top 10 mailboxes by item count','Mailboxes with the most items.')}</div>`;
+
+  const thRow = ['Email','Type','Items','Storage (GB)','Deleted','Del Size','Last Activity','Archive'].map(h=>`<th>${h}<span class="sa">▲</span></th>`).join('');
+  const dt = `<div class="chart-card"><h3>All Mailboxes</h3><p class="chart-sub">Click column headers to sort.</p>
+    <div class="tbl-wrap"><table id="tblExchange"><thead><tr>${thRow}</tr></thead><tbody></tbody></table></div></div>`;
+
+  const panel = document.getElementById('wl-exchange');
+  makeTabs(panel, ov, dt, 'Mailbox details');
+
+  buildDonut('exType', Object.keys(s.type_counts), Object.values(s.type_counts));
+  buildBar('exStorage', s.storage_buckets.map(b=>b.label), s.storage_buckets.map(b=>b.count));
+  buildDonut('exArchive', ['Enabled','Disabled'], [s.archive_enabled, s.archive_disabled]);
+  buildHBar('exTopStor', s.top_storage.map(r=>r.email.split('@')[0]), s.top_storage.map(r=>r.storage), PRI, v=>v.toFixed(2)+' GB');
+  buildHBar('exTopItems', s.top_items.map(r=>r.email.split('@')[0]), s.top_items.map(r=>r.items), PRI, v=>v.toLocaleString());
+
+  sortableTable(panel, 'tblExchange', s.rows, [
+    {key:'email',render:r=>`<span style="font-weight:500">${r.email}</span>`},
+    {key:'type',render:r=>`<span class="badge ${badgeType(r.type)}">${r.type}</span>`},
+    {key:'items',num:true,render:r=>r.items.toLocaleString()},
+    {key:'storage',num:true,render:r=>r.storage.toFixed(2)},
+    {key:'deleted',num:true,render:r=>r.deleted.toLocaleString()},
+    {key:'del_size',num:true,render:r=>r.del_size.toFixed(2)},
+    {key:'last_activity'},
+    {key:'archive',render:r=>`<span class="dot ${r.archive.toLowerCase()==='enabled'?'dot-on':'dot-off'}"></span>`},
+  ]);
+}
+
+// ── Groups ──
+if (allStats.groups) {
+  const s = allStats.groups;
+  const ov = `
+    <div class="stat-grid">
+      ${statHTML(s.total,'Total Groups')}${statHTML(s.no_owners,'Without Owners')}
+      ${statHTML(s.inactive,'Inactive Groups')}${statHTML(s.with_guests,'With Guests')}
+    </div>
+    <div class="chart-grid">
+      ${chartCard('grPrivacy','Group privacy distribution','Distribution of Public, Private, and Hidden membership groups.')}
+      ${chartCard('grStorage','SharePoint team sites by storage used','Number of team sites by storage used.')}
+    </div>`;
+
+  const thRow = ['Name','Privacy','Owners','Members','Guests','Teams','Last Activity','Total Size (GB)'].map(h=>`<th>${h}<span class="sa">▲</span></th>`).join('');
+  const dt = `<div class="chart-card"><h3>All Groups</h3><p class="chart-sub">Click column headers to sort.</p>
+    <div class="tbl-wrap"><table id="tblGroups"><thead><tr>${thRow}</tr></thead><tbody></tbody></table></div></div>`;
+
+  const panel = document.getElementById('wl-groups');
+  makeTabs(panel, ov, dt, 'Group details');
+
+  buildDonut('grPrivacy', Object.keys(s.privacy), Object.values(s.privacy));
+  buildBar('grStorage', s.storage_buckets.map(b=>b.label), s.storage_buckets.map(b=>b.count));
+
+  sortableTable(panel, 'tblGroups', s.rows, [
+    {key:'name',render:r=>`<span style="font-weight:500">${r.name}</span>`},
+    {key:'privacy',render:r=>`<span class="badge ${badgePriv(r.privacy)}">${r.privacy}</span>`},
+    {key:'owners',num:true},{key:'members',num:true},{key:'guests',num:true},
+    {key:'teams_status'},{key:'last_activity'},
+    {key:'total_size',num:true,render:r=>r.total_size.toFixed(2)},
+  ]);
+}
+
+// ── Teams ──
+if (allStats.teams) {
+  const s = allStats.teams;
+  const ov = `
+    <div class="stat-grid">
+      ${statHTML(s.total,'Total Teams')}${statHTML(s.no_owners,'Without Owners')}
+      ${statHTML(s.inactive,'Inactive Teams')}${statHTML(s.with_guests,'With Guests')}${statHTML(s.total_channels,'Total Channels')}
+    </div>
+    <div class="chart-grid">
+      ${chartCard('tmPrivacy','Team privacy distribution','Distribution of Public, Private, and Hidden membership teams.')}
+      ${chartCard('tmChannel','Channel type distribution','Standard, private, and shared channels.')}
+    </div>
+    <div class="chart-grid full">
+      ${chartCard('tmStorage','SharePoint team sites by storage used','Number of team sites by storage bucket.')}
+    </div>`;
+
+  const thRow = ['Name','Privacy','Owners','Members','Guests','Channels','Status','Last Activity','Total Size (GB)'].map(h=>`<th>${h}<span class="sa">▲</span></th>`).join('');
+  const dt = `<div class="chart-card"><h3>All Teams</h3><p class="chart-sub">Click column headers to sort.</p>
+    <div class="tbl-wrap"><table id="tblTeams"><thead><tr>${thRow}</tr></thead><tbody></tbody></table></div></div>`;
+
+  const panel = document.getElementById('wl-teams');
+  makeTabs(panel, ov, dt, 'Team details');
+
+  buildDonut('tmPrivacy', Object.keys(s.privacy), Object.values(s.privacy));
+  buildDonut('tmChannel', Object.keys(s.channel_types), Object.values(s.channel_types));
+  buildBar('tmStorage', s.storage_buckets.map(b=>b.label), s.storage_buckets.map(b=>b.count));
+
+  sortableTable(panel, 'tblTeams', s.rows, [
+    {key:'name',render:r=>`<span style="font-weight:500">${r.name}</span>`},
+    {key:'privacy',render:r=>`<span class="badge ${badgePriv(r.privacy)}">${r.privacy}</span>`},
+    {key:'owners',num:true},{key:'members',num:true},{key:'guests',num:true},
+    {key:'total_channels',num:true},{key:'status'},{key:'last_activity'},
+    {key:'total_size',num:true,render:r=>r.total_size.toFixed(2)},
+  ]);
+}
+
+// ── OneDrive ──
+if (allStats.onedrive) {
+  const s = allStats.onedrive;
+  const ov = `
+    <div class="stat-grid">
+      ${statHTML(s.total,'Total OneDrive Sites')}${statHTML(s.total_storage.toFixed(2),'Storage Used (GB)')}
+      ${statHTML(s.total_files.toLocaleString(),'Total Files')}
+    </div>
+    <div class="chart-grid">
+      ${chartCard('odStorage','Storage used','Number of OneDrive sites by storage used.')}
+      ${chartCard('odTopFiles','Top 10 by file count','OneDrive sites with the most files.')}
+    </div>`;
+
+  const thRow = ['User','Storage (GB)','Files','Last Activity'].map(h=>`<th>${h}<span class="sa">▲</span></th>`).join('');
+  const dt = `<div class="chart-card"><h3>All OneDrive Sites</h3><p class="chart-sub">Click column headers to sort.</p>
+    <div class="tbl-wrap"><table id="tblOneDrive"><thead><tr>${thRow}</tr></thead><tbody></tbody></table></div></div>`;
+
+  const panel = document.getElementById('wl-onedrive');
+  makeTabs(panel, ov, dt, 'OneDrive site details');
+
+  buildBar('odStorage', s.storage_buckets.map(b=>b.label), s.storage_buckets.map(b=>b.count));
+  buildHBar('odTopFiles', s.top_files.map(r=>r.display_name), s.top_files.map(r=>r.files), TEAL, v=>v.toLocaleString());
+
+  sortableTable(panel, 'tblOneDrive', s.rows, [
+    {key:'display_name',render:r=>`<span style="font-weight:500">${r.display_name}</span>`},
+    {key:'storage',num:true,render:r=>r.storage.toFixed(2)},
+    {key:'files',num:true,render:r=>r.files.toLocaleString()},
+    {key:'last_activity'},
+  ]);
+}
+
+// ── SharePoint ──
+if (allStats.sharepoint) {
+  const s = allStats.sharepoint;
+  const ov = `
+    <div class="stat-grid">
+      ${statHTML(s.total,'Total Site Collections')}${statHTML(s.total_storage.toFixed(2),'Storage Used (GB)')}
+      ${statHTML(s.total_files.toLocaleString(),'Total Files')}
+    </div>
+    <div class="chart-grid">
+      ${chartCard('spStorage','Site collections by storage used','Number of site collections by storage bucket.')}
+      ${chartCard('spActivity','Site collections by last activity','Number of site collections by last activity date.')}
+    </div>
+    <div class="chart-grid">
+      ${chartCard('spTemplates','Top templates by site count','Site templates most used by site collections.')}
+      ${chartCard('spTopFiles','Top 10 by file count','Site collections with the most files.')}
+    </div>`;
+
+  const thRow = ['Site Name','Template','Storage (GB)','Files','Last Activity'].map(h=>`<th>${h}<span class="sa">▲</span></th>`).join('');
+  const dt = `<div class="chart-card"><h3>All Site Collections</h3><p class="chart-sub">Click column headers to sort.</p>
+    <div class="tbl-wrap"><table id="tblSP"><thead><tr>${thRow}</tr></thead><tbody></tbody></table></div></div>`;
+
+  const panel = document.getElementById('wl-sharepoint');
+  makeTabs(panel, ov, dt, 'Site collection details');
+
+  buildBar('spStorage', s.storage_buckets.map(b=>b.label), s.storage_buckets.map(b=>b.count));
+  buildBar('spActivity', Object.keys(s.activity), Object.values(s.activity));
+
+  const tmpl = Object.entries(s.templates).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  buildHBar('spTemplates', tmpl.map(t=>t[0]), tmpl.map(t=>t[1]), TEAL);
+  buildHBar('spTopFiles', s.top_files.map(r=>r.name), s.top_files.map(r=>r.files), PRI, v=>v.toLocaleString());
+
+  sortableTable(panel, 'tblSP', s.rows, [
+    {key:'name',render:r=>`<span style="font-weight:500">${r.name}</span>`},
+    {key:'template'},{key:'storage',num:true,render:r=>r.storage.toFixed(2)},
+    {key:'files',num:true,render:r=>r.files.toLocaleString()},{key:'last_activity'},
+  ]);
+}
+</script>
+</body>
+</html>
