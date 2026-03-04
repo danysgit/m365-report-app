@@ -19,7 +19,7 @@ RUN mkdir -p uploads
 
 # Unraid Docker Manager labels — enables WebUI button and icon in Unraid UI
 LABEL net.unraid.docker.webui="http://[IP]:[PORT:5000]/"
-LABEL net.unraid.docker.icon="https://raw.githubusercontent.com/danysgit/m365-report-app/main/static/favicon.svg"
+LABEL net.unraid.docker.icon="https://raw.githubusercontent.com/danysgit/m365-report-app/main/static/favicon.png"
 LABEL net.unraid.docker.managed="dockerman"
 
 EXPOSE 5000

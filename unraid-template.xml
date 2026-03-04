@@ -17,7 +17,7 @@
   <Category>Tools:</Category>
   <WebUI>http://[IP]:[PORT:7880]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/danysgit/m365-report-app/main/unraid-template.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/danysgit/m365-report-app/main/static/favicon.svg</Icon>
+  <Icon>https://raw.githubusercontent.com/danysgit/m365-report-app/main/static/favicon.png</Icon>
   <ExtraParams/>
   <PostArgs/>
   <CPUset/>
