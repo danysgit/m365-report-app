@@ -413,5 +413,11 @@ if (allStats.sharepoint) {
   ]);
 }
 </script>
+<script>
+  // When the tab is closed or navigated away, delete the session data from the server.
+  window.addEventListener('pagehide', function() {
+    navigator.sendBeacon('/cleanup');
+  });
+</script>
 </body>
 </html>

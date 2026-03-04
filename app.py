@@ -5,7 +5,7 @@ Upload Fly Migration Excel reports → interactive dashboard → PDF export.
 Supports: Exchange Online, Microsoft 365 Groups, Teams, OneDrive, SharePoint Online
 """
 
-import os, io, uuid, json
+import os, io, uuid, json, time
 from datetime import datetime
 import openpyxl
 from flask import (
@@ -540,6 +540,21 @@ def generate_pdf(all_stats, detailed=True):
     return buf
 
 
+# ─── File lifecycle ──────────────────────────────────────────────────────────
+
+def cleanup_old_files(max_age_seconds=3600):
+    """Delete stats JSON files older than max_age_seconds. Safety net for abandoned sessions."""
+    now = time.time()
+    for fname in os.listdir(app.config["UPLOAD_FOLDER"]):
+        if fname.startswith("stats_") and fname.endswith(".json"):
+            fpath = os.path.join(app.config["UPLOAD_FOLDER"], fname)
+            try:
+                if now - os.path.getmtime(fpath) > max_age_seconds:
+                    os.remove(fpath)
+            except OSError:
+                pass
+
+
 # ─── Routes ──────────────────────────────────────────────────────────────────
 
 WORKLOADS = {
@@ -561,6 +576,7 @@ def index():
 
 @app.route("/upload", methods=["POST"])
 def upload():
+    cleanup_old_files()  # sweep abandoned sessions on each upload
     all_stats = {}
     uploaded_any = False
 
@@ -577,6 +593,12 @@ def upload():
                     all_stats[wk] = winfo["stats_fn"](rows)
             except Exception as e:
                 flash(f'Error parsing {winfo["label"]}: {e}', "error")
+            finally:
+                # Delete the xlsx immediately — it's only needed during parsing
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
 
     if not uploaded_any:
         flash("Please upload at least one file.", "error")
@@ -616,6 +638,20 @@ def dashboard():
         return redirect(url_for("index"))
     now_str = datetime.now().strftime("%b %d, %Y at %I:%M %p")
     return render_template("dashboard.html", all_stats=all_stats, labels=labels, now=now_str)
+
+@app.route("/cleanup", methods=["POST"])
+def cleanup():
+    """Called by the browser beacon on tab close. Deletes the session's stats file."""
+    data_id = session.get("data_id")
+    if data_id:
+        data_path = os.path.join(app.config["UPLOAD_FOLDER"], f"stats_{data_id}.json")
+        try:
+            os.remove(data_path)
+        except OSError:
+            pass
+        session.clear()
+    return "", 204
+
 
 @app.route("/export-pdf/<mode>")
 def export_pdf(mode):
