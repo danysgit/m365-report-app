@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>M365-Report</Name>
+  <Repository>ghcr.io/danysgit/m365-report-app:latest</Repository>
+  <Registry>https://ghcr.io/</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/danysgit/m365-report-app/issues</Support>
+  <Project>https://github.com/danysgit/m365-report-app</Project>
+  <Overview>
+    Self-hosted Microsoft 365 Tenant Discovery Report dashboard.
+    Upload Fly Migration Excel reports (.xlsx) to generate interactive dashboards with PDF export.
+    Supports Exchange Online, M365 Groups, Microsoft Teams, OneDrive, and SharePoint Online.
+  </Overview>
+  <Category>Tools:</Category>
+  <WebUI>http://[IP]:[PORT:7880]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/danysgit/m365-report-app/main/unraid-template.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/danysgit/m365-report-app/main/static/favicon.svg</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+
+  <!-- Host port → container port 5000. Default 7880 avoids common Unraid conflicts. -->
+  <Config
+    Name="Web UI Port"
+    Target="5000"
+    Default="7880"
+    Mode="tcp"
+    Description="Port to access the M365 Report web interface. Change if 7880 is already in use on your server."
+    Type="Port"
+    Display="always"
+    Required="true"
+    Mask="false">7880</Config>
+
+  <!-- Persistent storage for uploaded Excel files and generated stats -->
+  <Config
+    Name="Upload Storage"
+    Target="/app/uploads"
+    Default="/mnt/user/appdata/m365-report/uploads"
+    Mode="rw"
+    Description="Where uploaded Excel reports and generated stats JSON files are stored. Survives container updates."
+    Type="Path"
+    Display="always"
+    Required="true"
+    Mask="false">/mnt/user/appdata/m365-report/uploads</Config>
+
+  <!-- Secret key for Flask session security -->
+  <Config
+    Name="Secret Key"
+    Target="SECRET_KEY"
+    Default=""
+    Mode=""
+    Description="Flask session secret key. Set a long random string to keep sessions secure (e.g. openssl rand -hex 32)."
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="true"/>
+
+</Container>

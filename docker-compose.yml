@@ -1,0 +1,12 @@
+services:
+  m365-report:
+    build: .
+    image: ghcr.io/danysgit/m365-report-app:latest
+    container_name: m365-report
+    ports:
+      - "7880:5000"
+    volumes:
+      - ./uploads:/app/uploads
+    environment:
+      - SECRET_KEY=change-me-in-production
+    restart: unless-stopped

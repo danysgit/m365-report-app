@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+uploads/
+*.xlsx
+.git/
+.github/
+*.md
+docker-compose.yml
+unraid-template.xml
